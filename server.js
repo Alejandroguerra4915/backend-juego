@@ -3,17 +3,22 @@ const jwt = require("jsonwebtoken");
 const cors = require("cors");
 
 const app = express();
-
 app.use(express.json());
 app.use(cors());
 
 const PORT = process.env.PORT || 3000;
 
-// "Base de datos" temporal en memoria
+// Base de datos temporal en memoria
 let eventsDB = [];
 
-const SECRET = process.env.JWT_SECRET || "test_secret";
+// ==========================
+// SECRETO JWT
+// ==========================
+const SECRET = "jYV3XKHpYAg1xcimVHObpI9vPez6FZUuVckK_z1uoGc";
 
+// ==========================
+// RUTA RAIZ
+// ==========================
 app.get("/", (req, res) => {
     res.send("Backend funcionando");
 });
@@ -24,17 +29,16 @@ app.get("/", (req, res) => {
 app.post("/auth/validate-token", (req, res) => {
     const { token } = req.body;
 
-    if (!token) {
-        return res.status(400).json({ valid: false });
-    }
+    if (!token) return res.status(400).json({ valid: false });
 
     try {
+        // jwt.verify usa HMAC-SHA256 por defecto
         const decoded = jwt.verify(token, SECRET);
 
         res.json({
             valid: true,
             student_id: decoded.sub,
-            metadata: decoded.metadata
+            metadata: decoded.metadata || {}
         });
 
     } catch (err) {
@@ -43,7 +47,7 @@ app.post("/auth/validate-token", (req, res) => {
 });
 
 // ==========================
-// EVENTOS GENERALES
+// RUTA EVENTOS GENERALES
 // ==========================
 app.post("/events", (req, res) => {
     eventsDB.push(req.body);
@@ -51,14 +55,14 @@ app.post("/events", (req, res) => {
 });
 
 // ==========================
-// RESULTADO FINAL EXISTENTE
+// RUTA RESULTADO FINAL EXISTENTE
 // ==========================
 app.post("/finish", (req, res) => {
     const { student_id } = req.body;
 
     const userEvents = eventsDB.filter(e => e.student_id === student_id);
 
-    let result = {
+    const result = {
         areas: ["Tecnología"],
         carreras: ["Ingeniería de Sistemas"],
         totalEventos: userEvents.length
@@ -67,9 +71,7 @@ app.post("/finish", (req, res) => {
     res.json(result);
 });
 
-// ==========================
-// NUEVO: GUARDAR RESULTADO DEL JUEGO
-// ==========================
+
 app.post("/game/save-result", (req, res) => {
     const { student_id, ganador, mensaje } = req.body;
 
