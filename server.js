@@ -30,7 +30,7 @@ async function connectDB() {
 connectDB();
 
 // ==========================
-// BASE TEMPORAL (solo respaldo)
+// BASE TEMPORAL (respaldo)
 // ==========================
 let eventsDB = [];
 
@@ -118,9 +118,9 @@ app.post("/finish", async (req, res) => {
     const { student_id } = req.body;
 
     try {
-        const userEvents = await db.collection("respuestas").find({
-            student_id: student_id
-        }).toArray();
+        const userEvents = await db.collection("respuestas")
+            .find({ student_id })
+            .toArray();
 
         const result = {
             areas: ["Tecnología"],
@@ -163,6 +163,44 @@ app.post("/game/save-result", async (req, res) => {
     } catch (error) {
         console.error("Error guardando resultado:", error);
         res.status(500).json({ error: "Error guardando resultado" });
+    }
+});
+
+// ==========================
+// CONSULTAR RESULTADOS FINALES POR USUARIO
+// ==========================
+app.get("/game/results/:student_id", async (req, res) => {
+    const { student_id } = req.params;
+
+    try {
+        const resultados = await db.collection("resultados")
+            .find({ student_id })
+            .sort({ createdAt: -1 })
+            .toArray();
+
+        res.json(resultados);
+    } catch (error) {
+        console.error("Error consultando resultados:", error);
+        res.status(500).json({ error: "Error consultando resultados" });
+    }
+});
+
+// ==========================
+// CONSULTAR RESPUESTAS POR USUARIO
+// ==========================
+app.get("/game/answers/:student_id", async (req, res) => {
+    const { student_id } = req.params;
+
+    try {
+        const respuestas = await db.collection("respuestas")
+            .find({ student_id })
+            .sort({ createdAt: 1 })
+            .toArray();
+
+        res.json(respuestas);
+    } catch (error) {
+        console.error("Error consultando respuestas:", error);
+        res.status(500).json({ error: "Error consultando respuestas" });
     }
 });
 
