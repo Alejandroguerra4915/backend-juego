@@ -32,7 +32,6 @@ app.post("/auth/validate-token", (req, res) => {
     if (!token) return res.status(400).json({ valid: false });
 
     try {
-        // jwt.verify usa HMAC-SHA256 por defecto
         const decoded = jwt.verify(token, SECRET);
 
         res.json({
@@ -55,6 +54,31 @@ app.post("/events", (req, res) => {
 });
 
 // ==========================
+// NUEVO: GUARDAR RESPUESTA POR PREGUNTA
+// ==========================
+app.post("/game/answer", (req, res) => {
+    const { student_id, question_id, selected_option } = req.body;
+
+    if (!student_id || !question_id || !selected_option) {
+        return res.status(400).json({ error: "Datos incompletos" });
+    }
+
+    const respuesta = {
+        type: "game_answer",
+        student_id: student_id,
+        question_id: question_id,
+        selected_option: selected_option,
+        createdAt: new Date()
+    };
+
+    eventsDB.push(respuesta);
+
+    console.log("Respuesta guardada:", respuesta);
+
+    res.json({ success: true });
+});
+
+// ==========================
 // RUTA RESULTADO FINAL EXISTENTE
 // ==========================
 app.post("/finish", (req, res) => {
@@ -71,7 +95,9 @@ app.post("/finish", (req, res) => {
     res.json(result);
 });
 
-
+// ==========================
+// GUARDAR RESULTADO FINAL
+// ==========================
 app.post("/game/save-result", (req, res) => {
     const { student_id, ganador, mensaje } = req.body;
 
