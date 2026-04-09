@@ -1,6 +1,7 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
+const { MongoClient } = require("mongodb");
 
 const app = express();
 app.use(express.json());
@@ -8,7 +9,29 @@ app.use(cors());
 
 const PORT = process.env.PORT || 3000;
 
-// Base de datos temporal en memoria
+// ==========================
+// CONEXIÓN A MONGODB ATLAS
+// ==========================
+const uri = process.env.MONGO_URI;
+const client = new MongoClient(uri);
+
+let db;
+
+async function connectDB() {
+    try {
+        await client.connect();
+        db = client.db("juego");
+        console.log("Conectado a MongoDB Atlas");
+    } catch (error) {
+        console.error("Error conectando a MongoDB:", error);
+    }
+}
+
+connectDB();
+
+// ==========================
+// BASE TEMPORAL (solo respaldo)
+// ==========================
 let eventsDB = [];
 
 // ==========================
@@ -46,17 +69,22 @@ app.post("/auth/validate-token", (req, res) => {
 });
 
 // ==========================
-// RUTA EVENTOS GENERALES
+// EVENTOS GENERALES
 // ==========================
-app.post("/events", (req, res) => {
-    eventsDB.push(req.body);
-    res.json({ ok: true });
+app.post("/events", async (req, res) => {
+    try {
+        await db.collection("eventos").insertOne(req.body);
+        res.json({ ok: true });
+    } catch (error) {
+        console.error("Error guardando evento:", error);
+        res.status(500).json({ error: "Error guardando evento" });
+    }
 });
 
 // ==========================
-// NUEVO: GUARDAR RESPUESTA POR PREGUNTA
+// GUARDAR RESPUESTA POR PREGUNTA
 // ==========================
-app.post("/game/answer", (req, res) => {
+app.post("/game/answer", async (req, res) => {
     const { student_id, question_id, selected_option } = req.body;
 
     if (!student_id || !question_id || !selected_option) {
@@ -65,40 +93,53 @@ app.post("/game/answer", (req, res) => {
 
     const respuesta = {
         type: "game_answer",
-        student_id: student_id,
-        question_id: question_id,
-        selected_option: selected_option,
+        student_id,
+        question_id,
+        selected_option,
         createdAt: new Date()
     };
 
-    eventsDB.push(respuesta);
+    try {
+        await db.collection("respuestas").insertOne(respuesta);
 
-    console.log("Respuesta guardada:", respuesta);
+        console.log("Respuesta guardada:", respuesta);
 
-    res.json({ success: true });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Error guardando respuesta:", error);
+        res.status(500).json({ error: "Error guardando respuesta" });
+    }
 });
 
 // ==========================
-// RUTA RESULTADO FINAL EXISTENTE
+// RESULTADO FINAL EXISTENTE
 // ==========================
-app.post("/finish", (req, res) => {
+app.post("/finish", async (req, res) => {
     const { student_id } = req.body;
 
-    const userEvents = eventsDB.filter(e => e.student_id === student_id);
+    try {
+        const userEvents = await db.collection("respuestas").find({
+            student_id: student_id
+        }).toArray();
 
-    const result = {
-        areas: ["Tecnología"],
-        carreras: ["Ingeniería de Sistemas"],
-        totalEventos: userEvents.length
-    };
+        const result = {
+            areas: ["Tecnología"],
+            carreras: ["Ingeniería de Sistemas"],
+            totalEventos: userEvents.length
+        };
 
-    res.json(result);
+        res.json(result);
+
+    } catch (error) {
+        console.error("Error en finish:", error);
+        res.status(500).json({ error: "Error obteniendo resultados" });
+    }
 });
 
 // ==========================
 // GUARDAR RESULTADO FINAL
 // ==========================
-app.post("/game/save-result", (req, res) => {
+app.post("/game/save-result", async (req, res) => {
     const { student_id, ganador, mensaje } = req.body;
 
     if (!student_id || !ganador) {
@@ -107,17 +148,22 @@ app.post("/game/save-result", (req, res) => {
 
     const resultado = {
         type: "game_result",
-        student_id: student_id,
-        ganador: ganador,
-        mensaje: mensaje,
+        student_id,
+        ganador,
+        mensaje,
         createdAt: new Date()
     };
 
-    eventsDB.push(resultado);
+    try {
+        await db.collection("resultados").insertOne(resultado);
 
-    console.log("Resultado guardado:", resultado);
+        console.log("Resultado guardado:", resultado);
 
-    res.json({ success: true });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Error guardando resultado:", error);
+        res.status(500).json({ error: "Error guardando resultado" });
+    }
 });
 
 // ==========================
