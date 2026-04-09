@@ -1,40 +1,12 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
-const mongoose = require("mongoose"); // NUEVO
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
 const PORT = process.env.PORT || 3000;
-
-// ==========================
-// CONEXIÓN MONGODB (NUEVO)
-// ==========================
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("Mongo conectado"))
-    .catch(err => console.error("Error Mongo:", err));
-
-// ==========================
-// MODELOS MONGODB (NUEVO)
-// ==========================
-const AnswerSchema = new mongoose.Schema({
-    student_id: String,
-    question_id: String,
-    selected_option: String,
-    createdAt: { type: Date, default: Date.now }
-});
-
-const ResultSchema = new mongoose.Schema({
-    student_id: String,
-    ganador: String,
-    mensaje: String,
-    createdAt: { type: Date, default: Date.now }
-});
-
-const Answer = mongoose.model("Answer", AnswerSchema);
-const Result = mongoose.model("Result", ResultSchema);
 
 // Base de datos temporal en memoria
 let eventsDB = [];
@@ -60,6 +32,7 @@ app.post("/auth/validate-token", (req, res) => {
     if (!token) return res.status(400).json({ valid: false });
 
     try {
+        // jwt.verify usa HMAC-SHA256 por defecto
         const decoded = jwt.verify(token, SECRET);
 
         res.json({
@@ -82,33 +55,7 @@ app.post("/events", (req, res) => {
 });
 
 // ==========================
-// RUTA RESPUESTAS (NUEVO)
-// ==========================
-app.post("/game/answer", async (req, res) => {
-    try {
-        const { student_id, question_id, selected_option } = req.body;
-
-        if (!student_id || !question_id || !selected_option) {
-            return res.status(400).json({ error: "Datos incompletos" });
-        }
-
-        const answer = new Answer({
-            student_id,
-            question_id,
-            selected_option
-        });
-
-        await answer.save();
-
-        res.json({ success: true });
-
-    } catch (err) {
-        res.status(500).json({ error: "Error guardando respuesta" });
-    }
-});
-
-// ==========================
-// RUTA RESULTADO FINAL EXISTENTE (NO SE TOCA)
+// RUTA RESULTADO FINAL EXISTENTE
 // ==========================
 app.post("/finish", (req, res) => {
     const { student_id } = req.body;
@@ -124,26 +71,14 @@ app.post("/finish", (req, res) => {
     res.json(result);
 });
 
-// ==========================
-// RUTA RESULTADO FINAL (MEJORADA)
-// ==========================
-app.post("/game/save-result", async (req, res) => {
+
+app.post("/game/save-result", (req, res) => {
     const { student_id, ganador, mensaje } = req.body;
 
     if (!student_id || !ganador) {
         return res.status(400).json({ error: "Datos incompletos" });
     }
 
-    // Guardar en MongoDB
-    const nuevoResultado = new Result({
-        student_id,
-        ganador,
-        mensaje
-    });
-
-    await nuevoResultado.save();
-
-    // Mantener memoria (no se elimina nada)
     const resultado = {
         type: "game_result",
         student_id: student_id,
